@@ -4,5 +4,4 @@
   <user>hunter</user>
   <password>5071</password>
   <database>contacts</database>
-  <port>1433</port>
 </dbconfig>

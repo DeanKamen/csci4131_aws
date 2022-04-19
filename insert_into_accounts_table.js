@@ -12,7 +12,6 @@ const dbCon = mysql.createConnection({
     user: "hunter",               // replace with the database user provided to you
     password: "5071",           // replace with the database password provided to you
     database: "contacts",           // replace with the database user provided to you
-    port: 1433
 });
 
 console.log("Attempting database connection");
