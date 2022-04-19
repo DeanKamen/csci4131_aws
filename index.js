@@ -38,7 +38,7 @@ fs.readFile(__dirname + '/dbconfig.xml', function(err, data) {
 			user: result.user[0],
 			password: result.password[0],
 			database: result.database[0],
-			port: result.port[0]
+			//port: result.port[0]
 		}
 		connection = mysql.createConnection(jsonConnectionData);
 		console.log("Attempting database connection");
