@@ -8,11 +8,11 @@ const mysql = require("mysql");
 const bcrypt = require('bcrypt');
 
 const dbCon = mysql.createConnection({
-    host: "cse-mysql-classes-01.cse.umn.edu",
-    user: "C4131S22U71",               // replace with the database user provided to you
+    host: "localhost",
+    user: "hunter",               // replace with the database user provided to you
     password: "5071",           // replace with the database password provided to you
-    database: "C4131S22U71",           // replace with the database user provided to you
-    port: 3306
+    database: "contacts",           // replace with the database user provided to you
+    port: 1433
 });
 
 console.log("Attempting database connection");
