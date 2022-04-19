@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
+          integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO"
+          crossorigin="anonymous">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"
+            integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+            crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"
+            integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
+            crossorigin="anonymous"></script>
+    <title>Admin Page</title>
+  </head>
+  <style>
+	  .symbols{
+		  justify-content:space-between;
+		  display:flex;
+	  }
+  </style>
+  <body>
+    <nav class="navbar navbar-expanded navbar-light bg-light mb-5">
+      <ul class="nav nav-pills">
+        <li class="nav-item">
+          <a class="nav-link" href="welcome">Home</a>
+        </li>
+        <li class="nav-item active">
+          <a class="nav-link active" href="AdminPage">Admin Page</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="AllContacts">All Contacts</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="MyContacts">My Contacts</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="AddContact">Add Contact</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="Stocks">Stock Page</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="logout">LOG OUT</a>
+        </li>
+      </ul>
+      <span class="navbar-right text-primary"><b><u>Welcome <span id="welcome_user">login_id_goes_here</span>!</u></b></span>
+    </nav>
+
+    <div class="container mb-3">
+	  <div id="error_display" class="alert alert-danger invisible">Bruh</div>
+      <button onclick="addUser()" class="btn ml-3">&#x002b Add User</button>
+      <br>
+      <div class="container">
+        <table class="table table-striped table-bordered" id="userTable">
+          <thead>
+            <tr class="bg-primary text-light">
+			  <th scope="col">ID</th>
+              <th scope="col">Name</th>
+              <th scope="col">Login</th>
+              <th scope="col">New password</th>
+              <th scope="col"></th>
+              <!-- TODO: fix widths-->
+              <!-- I got the icons from https://graphemica.com/ --> 
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <script>
+	$(document).ready( function(){
+      resetTable();
+      updateUsername();
+    });
+	function updateUsername(){
+		$.get("username", function(data){
+			$('#welcome_user').text(data.user);
+		  });
+	};
+
+	async function reqUsers(){
+		return new Promise(function(resolve, reject){ //this is so I can wait for the reqUsers to resolve
+		  $.get("getListOfUsers", function(data){
+			  if(data.empty !== "empty"){
+				  for(let i = 0; i<data.length; i++){
+					//form the string for the DOM
+					let jid = "<td>" + data[i].id + "</td>"
+					let jname = "<td>" + data[i].name + "</td>";
+					let jusername = "<td>" + data[i].username + "</td>";
+					let newPassword = "<td></td>";
+					//clickable symbols
+					let editSymbol = "<button class=\"btn\" onclick=\"editUser(this)\"> &#x1f589 </button>";
+					let trashSymbol = "<button class=\"btn\" onclick=\"deleteUser(this)\"> &#x1f5d1 </button>";
+					let playSymbol = "<button class=\"btn\" onclick=\"replaceUser(this)\"> &#x25b8 </button>";
+					let symbols = "<td><div class=\"symbols\">" + editSymbol + trashSymbol + playSymbol + "</div></td>";
+					$('tbody').append("<tr>" + jid + jname + jusername + newPassword + symbols + "</tr>");
+				  }
+			  }
+			  resolve(1);
+		  });
+	    });
+	}
+    function clearTable() {
+      $('#userTable tbody').empty();
+    }
+    function addUser(){
+		//check to see if there is aleady an addUser row up.
+		if($("#addUserRow").length == 0){
+			let idCol = "<td></td>"; //create a row in the table. Make it be the last one
+			let nameCol = "<td> <input type=\"text\" id=\"nameInput\" pattern=\"[a-zA-Z0-9\s]+\" title=\"Name must be alphanumeric\" > </td>";
+			let loginCol = "<td> <input type=\"text\" id=\"loginInput\" pattern=\"[a-zA-Z0-9\s]+\" title=\"Name must be alphanumeric\" > </td>";
+			let passwordCol = "<td> <input type=\"password\" id=\"passwordInput\"> </td>";
+			let saveSymbol =   "<button class=\"btn\" onclick=\"saveButton()\">&#x1F5AB</button>";
+			let cancelSymbol = "<button class=\"btn\" onclick=\"xButton()\">&#x1F147</button>";
+			let symbolCol = "<td><div class=\"symbols\">" + saveSymbol + cancelSymbol + "</div></td>";
+			$('tbody').append("<tr id=\"addUserRow\">" + idCol + nameCol + loginCol + passwordCol + symbolCol + "</tr>");
+		}
+	}
+	function saveButton(){
+		let name = $('#nameInput').val();
+		let login = $('#loginInput').val();
+		let password = $('#passwordInput').val();
+		if(name.length > 0 && login.length>0 && password.length>0){
+			$.post("addUser", {name: name, login:login, password:password}, function(data){
+				if(data.status == "success"){
+					clearTable();
+					//the database is updated but the UI is not, refresh the page.
+					reqUsers();
+					$("#error_display").addClass("invisible");
+					xButton();
+				}
+				else if(data.status == "error"){ //error:user already logged in
+					$("#error_display").text("Error: Login already taken - Cannot add user");
+					$("#error_display").removeClass("invisible");
+				}
+				else{//mysql failure
+					$("#error_display").text("Error: Server Failure - try adding user again");
+					$("#error_display").removeClass("invisible");
+				}
+			}, "json");
+		}else{
+			let missing = [];
+			if(name.length == 0){
+				missing.push("Name");
+			}
+			if(login.length == 0){
+				missing.push("Login");
+			}
+			if(password.length == 0){
+				missing.push("Password");
+			}
+			m_string = missing.join(", ")
+			$("#error_display").text("Error: empty fields: " + m_string);
+			$("#error_display").removeClass("invisible");
+			$("#error_display").text("Error: empty fields: "+m_string);
+			$("#error_display").removeClass("invisible");
+		}
+	}
+	function xButton(){
+		$('#addUserRow').remove();
+		$("#error_display").addClass("invisible");
+	}
+	async function resetTable(){
+		clearTable();
+		await reqUsers();
+	}
+	
+	
+	async function editUser(box){//change a row into a bunch of edit boxes. Different from add user but similar structure
+		let tr = $(box).parent().parent().parent();
+		let idBox = tr.children().eq(0);
+		let nameBox = tr.children().eq(1);
+		let loginBox = tr.children().eq(2);
+		let passwordBox = tr.children().eq(3);
+		let symbolsBox = tr.children().eq(4);
+		//we just go and change everything, if x is hit we reset table. No need to store old values
+		//I changed the default value so it would populate with the current name/login information
+		nameBox.html("<input type=\"text\" pattern=\"[a-zA-Z0-9\s]+\" title=\"Name must be alphanumeric\" value=\"" +nameBox.text()+ "\">");
+		loginBox.html("<input type=\"text\" pattern=\"[a-zA-Z0-9\s]+\" title=\"Name must be alphanumeric\" value=\"" +loginBox.text()+ "\">");
+		passwordBox.html("<input type=\"password\" value=\"\">");
+		let saveSymbol =   "<button class=\"btn\" onclick=\"editUserPost(this)\">&#x1F5AB</button>";
+		let cancelSymbol = "<button class=\"btn\" onclick=\"removeEditRow(this)\">&#x1F147</button>";
+		symbolsBox.html("<div class=\"symbols\">" + saveSymbol + cancelSymbol + "</div>");
+	}
+    function editUserPost(box){ //send a post request, do error handling, and then update table
+		let tr = $(box).parent().parent().parent();
+		let updatedCredentials = {
+			id: tr.children().eq(0).text(),
+			name: tr.children().eq(1).children().eq(0).val(),
+			login: tr.children().eq(2).children().eq(0).val()
+		};
+		let newPass = tr.children().eq(3).children().eq(0).val();
+		if(newPass.length>0){
+			updatedCredentials.password = newPass;
+		}
+		if(updatedCredentials.name.length > 0 && updatedCredentials.login.length > 0){//detect first type of error: empty fields
+			$.post("updateUser", updatedCredentials, function(data){
+				if(data.status == "success"){
+					clearTable();
+					//the database is updated but the UI is not, refresh the page.
+					reqUsers();
+					$("#error_display").addClass("invisible");
+				}
+				else if(data.status == "error-active"){ //error:user already logged in
+					$("#error_display").text("Error: User currently logged in - Cannot edit user");
+					$("#error_display").removeClass("invisible");
+				}
+				else if(data.status == "error-taken"){ //error:username already taken
+					$("#error_display").text("Error: Login already taken");
+					$("#error_display").removeClass("invisible");
+				}
+				else{//mysql failure
+					$("#error_display").text("Error: Server Failure - try editing user again");
+					$("#error_display").removeClass("invisible");
+				}
+		    }, "json");
+		}else{
+			let missing = [];
+			if(updatedCredentials.name.length == 0){
+				missing.push("Name");
+			}
+			if(updatedCredentials.login.length == 0){
+				missing.push("Login");
+			}
+			m_string = missing.join(", ")
+			$("#error_display").text("Error: empty fields: " + m_string);
+			$("#error_display").removeClass("invisible");
+		}
+		
+	}
+	
+	function removeEditRow(box){
+		let tr = $(box).parent().parent().parent();
+		let idBox = tr.children().eq(0);
+		let nameBox = tr.children().eq(1);
+		let loginBox = tr.children().eq(2);
+		let passwordBox = tr.children().eq(3);
+		let symbolsBox = tr.children().eq(4);
+		//The goal here is to pull a normal user request, but only replace the row we hit the cancel button on
+		//note that ID stays the same whether in edit mode or not, we will use that as our cross reference
+		$.get("getListOfUsers", function(data){
+			  if(data.empty !== "empty"){
+				  for(let i = 0; i<data.length; i++){
+					  if(data[i].id == idBox.text())//ONLY REPLACE THE idBox whose ID the record matches
+					  {
+						    //form the string for the DOM
+							let jid = "<td>" + data[i].id + "</td>"
+							let jname = "<td>" + data[i].name + "</td>";
+							let jusername = "<td>" + data[i].username + "</td>";
+							let newPassword = "<td></td>";
+							//clickable symbols
+							let editSymbol = "<button class=\"btn\" onclick=\"editUser(this)\"> &#x1f589 </button>";
+							let trashSymbol = "<button class=\"btn\" onclick=\"deleteUser(this)\"> &#x1f5d1 </button>";
+							let playSymbol = "<button class=\"btn\" onclick=\"replaceUser(this)\"> &#x25b8 </button>";
+							let symbols = "<td><div class=\"symbols\">" + editSymbol + trashSymbol + playSymbol + "</div></td>";
+							$(tr).empty();
+							$(tr).append(jid + jname + jusername + newPassword + symbols);
+					  }
+				  }
+			  }
+		  });
+	}
+	
+	function deleteUser(box){
+		let tr = $(box).parent().parent().parent();
+		let idBox = tr.children().eq(0);
+		let nameBox = tr.children().eq(1);
+		let loginBox = tr.children().eq(2);
+		$.post("deleteUser", {login: loginBox.text()}, function(data){
+			if(data.status == "success"){
+				resetTable();
+				$("#error_display").addClass("invisible");
+			}
+			else if(data.status == "error"){ //error:user already logged in
+				$("#error_display").text("Error: User currently logged in - Cannot delete user");
+				$("#error_display").removeClass("invisible");
+			}
+			else{//mysql failure
+				$("#error_display").text("Error: Server Failure - try removing user again");
+				$("#error_display").removeClass("invisible");
+			}
+		}, "json");
+	}
+	
+	function replaceUser(box){
+		let tr = $(box).parent().parent().parent();
+		let loginBox = tr.children().eq(2);
+		$.post("username", {login: loginBox.text()}, function(data){
+			updateUsername();
+		}, "json");
+	}
+	
+    </script>
+  </body>
+</html>

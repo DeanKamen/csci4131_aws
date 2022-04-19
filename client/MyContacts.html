@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
+          integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO"
+          crossorigin="anonymous">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"
+            integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+            crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"
+            integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
+            crossorigin="anonymous"></script>
+    <title>My Contacts</title>
+  </head>
+  <body>
+    <nav class="navbar navbar-expanded navbar-light bg-light mb-5">
+      <ul class="nav nav-pills">
+        <li class="nav-item">
+          <a class="nav-link" href="welcome">Home</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="AdminPage">Admin Page</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="AllContacts">All Contacts</a>
+        </li>
+        <li class="nav-item active">
+          <a class="nav-link active" href="MyContacts">My Contacts</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="AddContact">Add
+            Contact</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="Stocks">Stock Page</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="logout">LOG OUT</a>
+        </li>
+      </ul>
+      <span class="navbar-right text-primary"><b><u>Welcome <span id="welcome_user">login_id_goes_here</span>!</u></b></span>
+    </nav>
+    <div class="container mb-5">
+      <div class="alert alert-secondary" role="alert">
+        Click on a category to see their contacts
+      </div>
+    </div>
+    <div class="container mb-3">
+      <ul id="categorys" class="nav nav-tabs nav-fill">
+        <li class="nav-item">
+          <a class="nav-link" onclick=
+                "formTable(this)">Academic</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" onclick=
+                "formTable(this)">Industry</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" onclick=
+                "formTable(this)">Personal</a>
+        </li>
+      </ul><br>
+      <br>
+      <div class="container">
+        <table class="table table-striped" id="contactTable">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Location</th>
+              <th scope="col">Contact Information</th>
+              <th scope="col">Email</th>
+              <th scope="col">Website</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <script>
+		
+	$(document).ready( function(){
+      updateUsername();
+    });
+	function updateUsername(){
+		$.get("username", function(data){
+			$('#welcome_user').text(data.user);
+		  });
+	};
+	
+    function formTable(element) {
+      $('#categorys li a').removeClass("active");
+      $(element).addClass("active");
+      clearTable();
+      let category = $(element).text().toLowerCase();
+      let categoryObj = {category: category};
+	  $.get("getContacts", categoryObj, appendTable,"json"); //make request
+    }
+	
+	function appendTable(data){ //fill table with **Contacts**
+	  //The request asks for one array of data, let us assume that it returned correctly
+      for(let i = 0; i<data.length; i++){
+		let contactPtr = data[i];
+		//form the string for the DOM
+		jName = "<td>" + contactPtr.name + "</td>";
+		jLoc = "<td>" + contactPtr.location + "</td>";
+		jCI = "<td>" + contactPtr.info + "</td>";
+		jEmail = "<td>" + contactPtr.email + "</td>";
+		jLink = "<td>" + "<a href="+ contactPtr.url +">" + contactPtr.website_title + "</a></td>";
+		$('tbody').append("<tr>" + jName + jLoc + jCI +jEmail + jLink + "</tr>");
+	  }
+	}
+    function clearTable() {
+      $('#contactTable tbody').empty();
+    }
+    </script>
+  </body>
+</html>
