@@ -27,25 +27,26 @@ const port = 9551;
 var xml2js = require('xml2js');
 var parser = new xml2js.Parser();
 var jsonConnectionData;
-var connection
+var pool;
 fs.readFile(__dirname + '/dbconfig.xml', function(err, data) {
 	if (err) throw err;
     parser.parseString(data, function (err, xml) {
 		result = xml.dbconfig;
 		if (err) throw err;
         jsonConnectionData = {
+			connectionLimit:10,
 			host: result.host[0],
 			user: result.user[0],
 			password: result.password[0],
 			database: result.database[0],
 			//port: result.port[0]
 		}
-		connection = mysql.createConnection(jsonConnectionData);
-		console.log("Attempting database connection");
-		connection.connect(function (err) {
-			if (err) {throw err;}
-			console.log("Connected to database!");
-		});
+		pool = mysql.createPool(jsonConnectionData);
+		//console.log("Attempting database connection");
+		//connection.connect(function (err) {
+		//	if (err) {throw err;}
+		//	console.log("Connected to database!");
+		//});
 	});
 });
 
@@ -81,6 +82,8 @@ app.post('/postJSONContactEntry', function(req,res){
 			if(err) {
 			  throw err;
 			}
+			pool.getConnection(function(err, connection){
+			  if err throw err;
 			  let jsonObj = JSON.parse(fd);
 			  let categories = ["Academic", "Industry", "Personal"];//caps because I dont want to wipe my database
 			  let c = 0;
@@ -104,7 +107,9 @@ app.post('/postJSONContactEntry', function(req,res){
 				}
 				c++;//I know what order I am accessing the categories so this is safe
 			  }
+			  connection.release();
 			  res.redirect('/AllContacts');
+			});
 		  });
       });
 	}else{
@@ -131,25 +136,27 @@ app.post('/login', function(req,res){
   let loginInfo = req.body;
   let username = loginInfo.username;
   let password = loginInfo.password;
-
-  connection.query("SELECT * from tbl_accounts WHERE ?", {acc_login:username}, function(err, rows, fields){
-	if (err) throw err;
-	
-	if(rows.length != 0)
-	{//because of unique usernames, this will always return at maximum one elemnent in rows[0]
-		let canLogin = bcrypt.compareSync(password, rows[0].acc_password);
-		canLogin = canLogin && (username === rows[0].acc_login);
-		if(canLogin)
-		{
-			req.session.value = username;
-			res.json({login:1});
-		}
-		else{
+  pool.getConnection(function(err, connection){
+    connection.query("SELECT * from tbl_accounts WHERE ?", {acc_login:username}, function(err, rows, fields){
+		if (err) throw err;
+		
+		if(rows.length != 0)
+		{//because of unique usernames, this will always return at maximum one elemnent in rows[0]
+			let canLogin = bcrypt.compareSync(password, rows[0].acc_password);
+			canLogin = canLogin && (username === rows[0].acc_login);
+			if(canLogin)
+			{
+				req.session.value = username;
+				res.json({login:1});
+			}
+			else{
+				res.json({login:0});
+			}
+		}else{
 			res.json({login:0});
 		}
-	}else{
-		res.json({login:0});
-	}
+    });
+    connection.release();
   });
 });
 
@@ -197,54 +204,60 @@ app.get('/Stocks', function(req, res) {
 
 app.get('/getAllContacts', function(req, res) {
 	if(req.session.value){
-	  connection.query("SELECT * from contact_table ORDER BY contact_category ASC, contact_name ASC", 
-	  function(err, rows, fields){
-	    if (err) throw err;
-	    if(rows.length != 0){
-	      let allContacts = [];
-		  for (var i = 0; i < rows.length; i++){
-			allContacts.push({ //I want to remove the id field and rename all fields before returning
-				category: rows[i].contact_category,
-				name: rows[i].contact_name,
-				location: rows[i].contact_location,
-				info: rows[i].contact_info,
-				email: rows[i].contact_email,
-				website_title: rows[i].website_title,
-				url: rows[i].website_url,
-			});
-		  }
-		  res.json(allContacts);
-	    }else{
-		  res.json({empty:"empty"});
-	    }
-      });
+		pool.getConnection(function(err, connection){
+		  connection.query("SELECT * from contact_table ORDER BY contact_category ASC, contact_name ASC", 
+		  function(err, rows, fields){
+			if (err) throw err;
+			if(rows.length != 0){
+			  let allContacts = [];
+			  for (var i = 0; i < rows.length; i++){
+				allContacts.push({ //I want to remove the id field and rename all fields before returning
+					category: rows[i].contact_category,
+					name: rows[i].contact_name,
+					location: rows[i].contact_location,
+					info: rows[i].contact_info,
+					email: rows[i].contact_email,
+					website_title: rows[i].website_title,
+					url: rows[i].website_url,
+				});
+			  }
+			  res.json(allContacts);
+			}else{
+			  res.json({empty:"empty"});
+			}
+		  });
+		  connection.release();
+		});
 	}else{
 	  res.redirect('/login')
 	}  
 });
 app.get('/getContacts', function(req, res) {
 	if(req.session.value){
-	  connection.query("SELECT * from contact_table WHERE contact_category = ? ORDER BY contact_name ASC", 
-	  req.query.category, function(err, rows, fields){
-	    if (err) throw err;
-	    if(rows.length != 0){
-	      let allContacts = [];
-		  for (var i = 0; i < rows.length; i++){
-			allContacts.push({ //I want to remove the id field and rename all fields before returning
-				//I could do all but renaming in the sql request
-				name: rows[i].contact_name,
-				location: rows[i].contact_location,
-				info: rows[i].contact_info,
-				email: rows[i].contact_email,
-				website_title: rows[i].website_title,
-				url: rows[i].website_url,
-			});
-		  }
-		  res.json(allContacts);
-	    }else{
-		  res.json({empty:"empty"});
-	    }
-      });
+	  pool.getConnection(function(err, connection){
+		  connection.query("SELECT * from contact_table WHERE contact_category = ? ORDER BY contact_name ASC", 
+		  req.query.category, function(err, rows, fields){
+			if (err) throw err;
+			if(rows.length != 0){
+			  let allContacts = [];
+			  for (var i = 0; i < rows.length; i++){
+				allContacts.push({ //I want to remove the id field and rename all fields before returning
+					//I could do all but renaming in the sql request
+					name: rows[i].contact_name,
+					location: rows[i].contact_location,
+					info: rows[i].contact_info,
+					email: rows[i].contact_email,
+					website_title: rows[i].website_title,
+					url: rows[i].website_url,
+				});
+			  }
+			  res.json(allContacts);
+			}else{
+			  res.json({empty:"empty"});
+			}
+		  });
+	      connection.release();
+	  });
 	}else{
 	  res.redirect('/login')
 	}  
@@ -262,13 +275,16 @@ app.post('/postContactEntry', function(req,res){
 		website_title: postData.website_title,
 		website_url: postData.url,
 	  };
-      connection.query('INSERT contact_table SET ?', contactToEnter, function (err, result) {
-        if (err) {
-            throw err;
-        }
-        console.log("Table record inserted!");
-        res.redirect('/AllContacts');
-      });
+	  pool.getConnection(function(err, connection){
+		  connection.query('INSERT contact_table SET ?', contactToEnter, function (err, result) {
+			if (err) {
+				throw err;
+			}
+			console.log("Table record inserted!");
+			res.redirect('/AllContacts');
+		  });
+	      connection.release();
+	  });
 	}else{
 	  res.redirect('/login');
 	} 
@@ -304,29 +320,33 @@ app.post('/username', function(req, res){ //this is a username change request. S
 
 app.get('/getListOfUsers', function(req, res){
 	if(req.session.value){
-	  connection.query("SELECT * from tbl_accounts", function(err, rows, fields){
-	    if (err) throw err;
-	    if(rows.length != 0){
-	      let allUsers = [];
-		  for (var i = 0; i < rows.length; i++){
-			allUsers.push({
-				id:rows[i].acc_id,
-				name: rows[i].acc_name,
-				username: rows[i].acc_login
-			});
-		  }
-		  res.json(allUsers);
-	    }else{
-		  res.json({empty:"empty"});
-	    }
-      });
+	  pool.getConnection(function(err, connection){
+		  connection.query("SELECT * from tbl_accounts", function(err, rows, fields){
+			if (err) throw err;
+			if(rows.length != 0){
+			  let allUsers = [];
+			  for (var i = 0; i < rows.length; i++){
+				allUsers.push({
+					id:rows[i].acc_id,
+					name: rows[i].acc_name,
+					username: rows[i].acc_login
+				});
+			  }
+			  res.json(allUsers);
+			}else{
+			  res.json({empty:"empty"});
+			}
+		  });
+	      connection.release();
+	  });
 	}else{
 		res.redirect("/login");
 	}
 });
 app.post('/addUser', function(req, res){
 	if(req.session.value){
-		connection.query("SELECT * from tbl_accounts WHERE ?", {acc_login:req.body.login}, function(err, rows, fields){
+		pool.getConnection(function(err, connection){
+		  connection.query("SELECT * from tbl_accounts WHERE ?", {acc_login:req.body.login}, function(err, rows, fields){
 			if (err) throw err;
 			if(rows.length != 0){//we cant add this user because this login already exists.
 					res.json({status:"error"});
@@ -347,7 +367,9 @@ app.post('/addUser', function(req, res){
 					res.json({status:"success"});
 				});
 			}
-        });
+		  });
+	      connection.release();
+	    });		
 	}else{
 		res.redirect("/login");
 	}
@@ -355,7 +377,8 @@ app.post('/addUser', function(req, res){
 app.post('/updateUser', function(req, res){
 	if(req.session.value){
 		//this query finds our id we want to change AND all of the users that match the potential username
-		connection.query("SELECT * from tbl_accounts WHERE ? OR ?", [{acc_id:req.body.id},{acc_login:req.body.login}], function(err, rows, fields){
+		pool.getConnection(function(err, connection){
+		  connection.query("SELECT * from tbl_accounts WHERE ? OR ?", [{acc_id:req.body.id},{acc_login:req.body.login}], function(err, rows, fields){
 			if (err) throw err; 
 			let isEditingNonexistientUser = rows.length == 0;
 			if(isEditingNonexistientUser){
@@ -391,7 +414,9 @@ app.post('/updateUser', function(req, res){
 					res.json({status:"success"});
 				});
 			}
-        });
+          });
+	      connection.release();
+	    });	
 	}else{
 		res.redirect("/login");
 	}
@@ -402,10 +427,13 @@ app.post('/deleteUser', function(req, res){
 		if(req.body.login == req.session.value){
 			res.json({status:"error"});
 		}else{
-			connection.query("DELETE FROM tbl_accounts WHERE ?", {acc_login:req.body.login}, function(err, rows, fields){
-				if (err) throw err;
-				res.json({status:"success"});
-			});
+			pool.getConnection(function(err, connection){
+			  connection.query("DELETE FROM tbl_accounts WHERE ?", {acc_login:req.body.login}, function(err, rows, fields){
+					if (err) throw err;
+					res.json({status:"success"});
+			  });
+			  connection.release();
+			});	
 		}
 	}else{
 		res.redirect("/login");
@@ -414,31 +442,33 @@ app.post('/deleteUser', function(req, res){
 
 app.get('/csvRequest', function(req, res){
 	if(req.session.value){
-		  connection.query("SELECT * from contact_table ORDER BY contact_category ASC, contact_name ASC", //similar request to getAllContacts
-		  function(err, rows, fields){
-			if (err) throw err;
-			if(rows.length != 0){
-			  let csvFile = "Name,Category,Location,ContactInformation,Email,Website\n";
-			  let dbRow = "";
-			  for (var i = 0; i < rows.length; i++){
-				dbRow= "\""+rows[i].contact_name+"\",";
-				dbRow+="\""+rows[i].contact_category+"\",";
-				dbRow+="\""+rows[i].contact_location+"\",";
-				dbRow+="\""+rows[i].contact_info+"\",";
-				dbRow+="\""+rows[i].contact_email+"\",";
-				dbRow+="\""+rows[i].website_url+"\"";
-				//i quoted dbRow because thats how a csv file works apparently.
-				csvFile+=dbRow +"\n";
-			  }
-			  fs.writeFile('./client/contacts.csv', csvFile, err => {
-				if (err) throw err
-				res.sendFile(__dirname + '/client/contacts.csv');
+		pool.getConnection(function(err, connection){
+			  connection.query("SELECT * from contact_table ORDER BY contact_category ASC, contact_name ASC", //similar request to getAllContacts
+				  function(err, rows, fields){
+					if (err) throw err;
+					if(rows.length != 0){
+					  let csvFile = "Name,Category,Location,ContactInformation,Email,Website\n";
+					  let dbRow = "";
+					  for (var i = 0; i < rows.length; i++){
+						dbRow= "\""+rows[i].contact_name+"\",";
+						dbRow+="\""+rows[i].contact_category+"\",";
+						dbRow+="\""+rows[i].contact_location+"\",";
+						dbRow+="\""+rows[i].contact_info+"\",";
+						dbRow+="\""+rows[i].contact_email+"\",";
+						dbRow+="\""+rows[i].website_url+"\"";
+						//i quoted dbRow because thats how a csv file works apparently.
+						csvFile+=dbRow +"\n";
+					  }
+					  fs.writeFile('./client/contacts.csv', csvFile, err => {
+						if (err) throw err
+						res.sendFile(__dirname + '/client/contacts.csv');
+					  });
+					}else{
+					  res.json({empty:"empty"});
+					}
 			  });
-			}else{
-			  res.json({empty:"empty"});
-			}
-		  });
-		 
+			  connection.release();
+		}); 
 	}else{
 		res.redirect("/login");
 	}
