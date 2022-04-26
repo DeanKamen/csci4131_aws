@@ -83,7 +83,7 @@ app.post('/postJSONContactEntry', function(req,res){
 			  throw err;
 			}
 			pool.getConnection(function(err, connection){
-			  if err throw err;
+			  if (err) {throw err;}
 			  let jsonObj = JSON.parse(fd);
 			  let categories = ["Academic", "Industry", "Personal"];//caps because I dont want to wipe my database
 			  let c = 0;
